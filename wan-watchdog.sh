@@ -30,6 +30,14 @@ current_ssid() {
   iw dev "$1" link 2>/dev/null | sed -n 's/^[[:space:]]*SSID: //p' | head -1
 }
 
+current_bssid() {
+  iw dev "$1" link 2>/dev/null | awk '/Connected to/ {print $3}' | head -1
+}
+
+configured_bssid() {
+  nmcli -g 802-11-wireless.bssid connection show "$CONN" 2>/dev/null | head -1
+}
+
 best_5ghz_bssid() {
   local iface="$1" ssid="$2" min_freq="$3"
   [ -n "$iface" ] && [ -n "$ssid" ] || return
@@ -65,8 +73,19 @@ iface=$(nmcli -g GENERAL.DEVICES connection show "$CONN" 2>/dev/null | head -1)
 freq=$(iw dev "$iface" link 2>/dev/null | awk '/freq:/ {print $2}' | head -1 | cut -d. -f1)
 [ -n "$freq" ] || exit 0
 
+ssid=$(current_ssid "$iface")
+
+if [ "$freq" -ge "$MIN_FREQ" ]; then
+  bssid=$(current_bssid "$iface")
+  pinned=$(configured_bssid)
+  if [ -n "$bssid" ] && [ "$pinned" != "$bssid" ]; then
+    nmcli connection modify "$CONN" 802-11-wireless.band a 802-11-wireless.bssid "$bssid" >/dev/null 2>&1
+    logger -t netshare-wan-watchdog "WAN ja em $(band_name "$freq") (${freq} MHz) — fixei BSSID atual $bssid para SSID '$ssid'"
+  fi
+  exit 0
+fi
+
 if [ "$freq" -lt "$MIN_FREQ" ]; then
-  ssid=$(current_ssid "$iface")
   bssid=$(best_5ghz_bssid "$iface" "$ssid" "$MIN_FREQ")
   if [ -n "$bssid" ]; then
     nmcli connection modify "$CONN" 802-11-wireless.band a 802-11-wireless.bssid "$bssid" >/dev/null 2>&1

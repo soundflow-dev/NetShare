@@ -249,27 +249,43 @@ def _device_ipv4(dev):
 def wifi_scan(dev):
     nmcli("device", "wifi", "rescan", "ifname", dev, timeout=20)
     rc, out, err = nmcli(
-        "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY", "device", "wifi", "list",
+        "-t", "-f", "IN-USE,BSSID,SSID,FREQ,SIGNAL,SECURITY", "device", "wifi", "list",
         "ifname", dev,
     )
     if rc != 0:
         raise RuntimeError(err.strip() or "scan falhou")
     seen, nets = set(), []
     for row in _terse(out):
-        if len(row) < 4:
+        if len(row) < 6:
             continue
-        in_use, ssid, signal, sec = row[0], row[1], row[2], row[3]
-        if not ssid or ssid in seen:
+        in_use, bssid, ssid, freq, signal, sec = row[:6]
+        if not ssid or not bssid or bssid in seen:
             continue
-        seen.add(ssid)
+        seen.add(bssid)
+        freq_mhz = int(freq) if freq.isdigit() else 0
         nets.append({
             "ssid": ssid,
+            "bssid": bssid,
+            "freq": freq_mhz,
+            "band": _band_name(freq_mhz),
             "signal": int(signal) if signal.isdigit() else 0,
             "security": sec or "Open",
             "in_use": in_use.strip() == "*",
         })
-    nets.sort(key=lambda n: n["signal"], reverse=True)
+    nets.sort(key=lambda n: (n["ssid"].lower(), -n["freq"], -n["signal"]))
     return nets
+
+
+def _band_name(freq_mhz):
+    if not freq_mhz:
+        return ""
+    if freq_mhz < 3000:
+        return "2.4 GHz"
+    if freq_mhz < 6000:
+        return "5 GHz"
+    if freq_mhz < 8000:
+        return "6 GHz"
+    return f"{freq_mhz} MHz"
 
 
 # --------------------------------------------------------------------------- #
@@ -278,7 +294,7 @@ def wifi_scan(dev):
 WAN_METRIC = "50"  # métrica baixa => a WAN Wi-Fi é a rota default primária
 
 
-def wifi_connect(dev, ssid, password):
+def wifi_connect(dev, ssid, password, bssid="", freq=0):
     """Liga a interface Wi-Fi a uma rede e marca essa ligacao como a WAN.
 
     Remove primeiro qualquer perfil netshare-wan antigo (evita o erro
@@ -296,14 +312,28 @@ def wifi_connect(dev, ssid, password):
     _delete_conn(CON["wan"])
     args = ["device", "wifi", "connect", ssid, "ifname", dev,
             "name", CON["wan"]]
+    if bssid:
+        args += ["bssid", bssid]
     if password:
         args += ["password", password]
     rc, _, err = nmcli(*args, timeout=60)
     if rc != 0:
         raise RuntimeError(err.strip() or "ligacao Wi-Fi falhou")
-    nmcli("connection", "modify", CON["wan"],
-          "ipv4.never-default", "no",
-          "ipv4.route-metric", WAN_METRIC, "ipv6.route-metric", WAN_METRIC)
+    modify_args = [
+        "connection", "modify", CON["wan"],
+        "ipv4.never-default", "no",
+        "ipv4.route-metric", WAN_METRIC,
+        "ipv6.route-metric", WAN_METRIC,
+    ]
+    try:
+        freq = int(freq or 0)
+    except (TypeError, ValueError):
+        freq = 0
+    if bssid:
+        modify_args += ["802-11-wireless.bssid", bssid]
+        if 5000 <= freq < 6000:
+            modify_args += ["802-11-wireless.band", "a"]
+    nmcli(*modify_args)
     nmcli("connection", "up", CON["wan"], timeout=40)
     return True
 
@@ -711,7 +741,8 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == "/api/wifi/connect":
             return self._safe(lambda: {"ok": wifi_connect(
-                data.get("dev"), data.get("ssid"), data.get("password", ""))})
+                data.get("dev"), data.get("ssid"), data.get("password", ""),
+                data.get("bssid", ""), data.get("freq", 0))})
         if path == "/api/wifi/disconnect":
             return self._safe(lambda: {"ok": wifi_disconnect(data.get("dev"))})
         if path == "/api/role":

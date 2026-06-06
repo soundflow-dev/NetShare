@@ -63,6 +63,7 @@ const TRANSLATIONS = {
     "wifi.connecting": "A ligar a \"{ssid}\"…",
     "wifi.connectedToWan": "Ligado a \"{ssid}\". Esta interface é a WAN.",
     "wifi.passwordPlaceholder": "Password da rede",
+    "wifi.bssid": "BSSID",
     "wifi.shareSsidPrompt": "Nome da rede Wi-Fi a criar",
     "wifi.sharePasswordPrompt": "Password da rede Wi-Fi (mín. 8 caracteres)",
     "wifi.sharePasswordShort": "A password do hotspot Wi-Fi precisa de pelo menos 8 caracteres.",
@@ -155,6 +156,7 @@ const TRANSLATIONS = {
     "wifi.connecting": "Connecting to \"{ssid}\"…",
     "wifi.connectedToWan": "Connected to \"{ssid}\". This interface is the WAN.",
     "wifi.passwordPlaceholder": "Network password",
+    "wifi.bssid": "BSSID",
     "wifi.shareSsidPrompt": "Wi-Fi network name to create",
     "wifi.sharePasswordPrompt": "Wi-Fi network password (min. 8 characters)",
     "wifi.sharePasswordShort": "The Wi-Fi hotspot password must be at least 8 characters.",
@@ -668,19 +670,21 @@ function wifiRow(net) {
   row.className = "wifi-row" + (net.in_use ? " in-use" : "");
   const bars = Math.min(4, Math.round(net.signal / 25));
   const locked = net.security && net.security !== "Open";
+  const meta = [net.band, locked ? "🔒 " + net.security : t("wifi.open"), net.bssid]
+    .filter(Boolean).join(" · ");
   const action = net.in_use
     ? `<span class="wifi-state">${t("wifi.connected")}</span><button class="ghost disconnect">${t("wifi.disconnect")}</button>`
     : `<button class="connect">${t("wifi.connect")}</button>`;
   row.innerHTML = `
     <span class="signal s${bars}">▂▄▆█</span>
     <span class="ssid">${esc(net.ssid)}</span>
-    <span class="sec">${locked ? "🔒 " + esc(net.security) : esc(t("wifi.open"))}</span>
+    <span class="sec">${esc(meta)}</span>
     ${action}`;
   if (net.in_use) {
     row.querySelector(".disconnect").addEventListener("click", disconnectWifi);
   } else {
     row.querySelector(".connect").addEventListener("click", () =>
-      locked ? askPassword(net.ssid) : connect(net.ssid, ""));
+      locked ? askPassword(net) : connect(net, ""));
   }
   return row;
 }
@@ -698,22 +702,30 @@ async function disconnectWifi() {
   } catch (e) { toast(t("err.failPrefix") + e.message, true); }
 }
 
-let pendingSsid = null;
-function askPassword(ssid) {
-  pendingSsid = ssid;
-  document.getElementById("modal-ssid").textContent = ssid;
+let pendingNetwork = null;
+function askPassword(net) {
+  pendingNetwork = net;
+  document.getElementById("modal-ssid").textContent =
+    [net.ssid, net.band, net.bssid].filter(Boolean).join(" · ");
   document.getElementById("modal-pass").value = "";
   document.getElementById("modal").classList.remove("hidden");
   document.getElementById("modal-pass").focus();
 }
-function closeModal() { document.getElementById("modal").classList.add("hidden"); pendingSsid = null; }
+function closeModal() { document.getElementById("modal").classList.add("hidden"); pendingNetwork = null; }
 
-async function connect(ssid, password) {
+async function connect(net, password) {
+  const ssid = net.ssid;
   toast(t("wifi.connecting", { ssid }));
   try {
     await api("/api/wifi/connect", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dev: wifiDev, ssid, password }),
+      body: JSON.stringify({
+        dev: wifiDev,
+        ssid,
+        password,
+        bssid: net.bssid || "",
+        freq: net.freq || 0,
+      }),
     });
     toast(t("wifi.connectedToWan", { ssid }));
     refreshStatus(); loadIsp(true);
@@ -844,8 +856,9 @@ $("refresh").addEventListener("click", refreshStatus);
 $("scan").addEventListener("click", scanWifi);
 $("modal-cancel").addEventListener("click", closeModal);
 $("modal-connect").addEventListener("click", () => {
-  const pw = $("modal-pass").value, ssid = pendingSsid;
-  closeModal(); connect(ssid, pw);
+  const pw = $("modal-pass").value, net = pendingNetwork;
+  closeModal();
+  if (net) connect(net, pw);
 });
 $("auth-submit").addEventListener("click", submitAuth);
 $("auth-pass").addEventListener("keydown", (e) => { if (e.key === "Enter" && authMode === "login") submitAuth(); });

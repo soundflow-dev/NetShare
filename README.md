@@ -18,7 +18,7 @@ role to each interface from a **UniFi-style web panel**:
 - **"Internet" panel** with ISP, public IP, organization and location.
 - **Live throughput** (↓/↑) per interface, with area charts.
 - Real-time IPs and state of every interface.
-- Wi-Fi scanner and 1-click connect.
+- Wi-Fi scanner by BSSID/band and 1-click connect.
 - Bilingual **Portuguese / English** with browser auto-detection.
 
 > **Demo mode:** opening `static/index.html` in a browser, with no backend,
@@ -197,7 +197,8 @@ Two mechanisms, to make sure SSH survives any reboot.
 > reconnect.
 >
 > This optional watchdog does that automatically: every 1 minute it checks
-> whether `netshare-wan` is off the 5 GHz band and, if so, finds the best
+> whether `netshare-wan` is pinned to a 5 GHz BSSID. If it is already on
+> 5 GHz, it pins the current BSSID. If it is on 2.4 GHz, it finds the best
 > 5 GHz BSSID for the current SSID, pins that BSSID in the profile, and
 > forces a `down/up`. This is more robust than using only `wifi.band a`,
 > because some APs/drivers roam back to the 2.4 GHz BSSID.
@@ -264,8 +265,9 @@ systemctl status netshare-wan-watchdog.timer 2>&1 | head -3
 
 ### Note
 
-The watchdog sets `wifi.band a` and automatically pins a 5 GHz BSSID when it
-finds one for the current SSID. To clear that BSSID manually:
+The panel also passes the selected BSSID when joining a Wi-Fi network. If you
+choose the 5 GHz entry in the scanner, the profile is pinned to that AP. The
+watchdog reinforces that after reboots/reconnects. To clear that BSSID manually:
 
 ```bash
 sudo nmcli connection modify netshare-wan 802-11-wireless.bssid ""

@@ -18,7 +18,7 @@ cada placa num **painel web** ao estilo UniFi:
 - **Painel "Internet"** com ISP, IP público, organização e localização.
 - **Throughput ao vivo** (↓/↑) por interface, com gráficos de área.
 - IPs e estado de cada placa em tempo real.
-- Scanner de redes Wi-Fi e ligação com 1 clique.
+- Scanner de redes Wi-Fi por BSSID/banda e ligação com 1 clique.
 - Bilingue **Português / Inglês** com auto-deteção pelo browser.
 
 > **Modo demonstração:** abrir `static/index.html` num browser, sem backend,
@@ -193,10 +193,11 @@ Dois mecanismos para garantir que o SSH sobrevive a qualquer reboot.
 > na banda lenta até alguém forçar manualmente um reconnect.
 >
 > Este vigia opcional faz isso automaticamente: a cada 1 min verifica se a
-> `netshare-wan` está fora dos 5 GHz e, se estiver, procura o melhor BSSID
-> de 5 GHz para o SSID atual, fixa esse BSSID no perfil e força um `down/up`.
-> Isto é mais robusto do que usar só `wifi.band a`, porque alguns APs/drivers
-> fazem roaming de volta para o BSSID de 2.4 GHz.
+> `netshare-wan` está presa a um BSSID de 5 GHz. Se já estiver em 5 GHz, fixa
+> o BSSID atual. Se estiver em 2.4 GHz, procura o melhor BSSID de 5 GHz para
+> o SSID atual, fixa esse BSSID no perfil e força um `down/up`. Isto é mais
+> robusto do que usar só `wifi.band a`, porque alguns APs/drivers fazem
+> roaming de volta para o BSSID de 2.4 GHz.
 
 Se NÃO tens este caso, **ignora esta secção** — não precisas.
 
@@ -260,8 +261,10 @@ systemctl status netshare-wan-watchdog.timer 2>&1 | head -3
 
 ### Nota
 
-O vigia configura `wifi.band a` e fixa automaticamente um BSSID 5 GHz quando
-encontra um para o SSID atual. Se quiseres limpar esse BSSID manualmente:
+O painel também passa o BSSID escolhido quando ligas a uma rede Wi-Fi. Se
+escolheres a entrada 5 GHz no scanner, o perfil fica preso a esse AP. O vigia
+reforça isso depois de reboots/reconnects. Se quiseres limpar esse BSSID
+manualmente:
 
 ```bash
 sudo nmcli connection modify netshare-wan 802-11-wireless.bssid ""
