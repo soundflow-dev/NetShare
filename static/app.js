@@ -670,7 +670,8 @@ function wifiRow(net) {
   row.className = "wifi-row" + (net.in_use ? " in-use" : "");
   const bars = Math.min(4, Math.round(net.signal / 25));
   const locked = net.security && net.security !== "Open";
-  const meta = [net.band, locked ? "🔒 " + net.security : t("wifi.open"), net.bssid]
+  const freq = net.freq ? `${net.freq} MHz` : "";
+  const meta = [net.band, freq, locked ? "🔒 " + net.security : t("wifi.open"), net.bssid]
     .filter(Boolean).join(" · ");
   const action = net.in_use
     ? `<span class="wifi-state">${t("wifi.connected")}</span><button class="ghost disconnect">${t("wifi.disconnect")}</button>`

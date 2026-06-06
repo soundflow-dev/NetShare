@@ -262,7 +262,7 @@ def wifi_scan(dev):
         if not ssid or not bssid or bssid in seen:
             continue
         seen.add(bssid)
-        freq_mhz = int(freq) if freq.isdigit() else 0
+        freq_mhz = _parse_freq_mhz(freq)
         nets.append({
             "ssid": ssid,
             "bssid": bssid,
@@ -286,6 +286,11 @@ def _band_name(freq_mhz):
     if freq_mhz < 8000:
         return "6 GHz"
     return f"{freq_mhz} MHz"
+
+
+def _parse_freq_mhz(value):
+    m = re.search(r"\d+", value or "")
+    return int(m.group(0)) if m else 0
 
 
 # --------------------------------------------------------------------------- #
