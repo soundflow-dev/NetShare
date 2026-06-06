@@ -1,0 +1,21 @@
+[Unit]
+Description=NetShare - painel web de partilha de internet
+After=network.target NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+Type=simple
+# Corre como root porque reconfigura a rede via nmcli.
+ExecStart=/usr/bin/python3 /opt/netshare/app.py
+Environment=NETSHARE_CONFIG=/etc/netshare/config.json
+Restart=on-failure
+RestartSec=3
+# Mitigacoes basicas (continua privilegiado para gerir rede)
+NoNewPrivileges=false
+ProtectHome=true
+ProtectSystem=full
+# /etc/netshare tem de ser gravavel (guarda credenciais em auth.json)
+ReadWritePaths=/etc/netshare
+
+[Install]
+WantedBy=multi-user.target

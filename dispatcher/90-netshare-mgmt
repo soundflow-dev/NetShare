@@ -1,0 +1,13 @@
+#!/bin/bash
+# NetShare — repõe a rota de retorno de gestão sempre que a interface da ligação
+# "netshare-lan" (papel de gestão) sobe ou renova DHCP. Delega a lógica (com
+# retries e deteção automática de IP/gateway) no script mgmt-route.sh.
+# Tolerante a falhas de propósito (sem set -e): nunca deve abortar a rede.
+IFACE="$1"; ACTION="$2"
+[ "$CONNECTION_ID" = "netshare-lan" ] || exit 0
+case "$ACTION" in
+  up|dhcp4-change) ;;
+  *) exit 0 ;;
+esac
+/opt/netshare/mgmt-route.sh >/dev/null 2>&1 &
+exit 0

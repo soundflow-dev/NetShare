@@ -1,0 +1,22 @@
+{
+  "name": "NetShare",
+  "short_name": "NetShare",
+  "description": "Painel de partilha de internet por Wi-Fi",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0a0f14",
+  "theme_color": "#0d1218",
+  "icons": [
+    {
+      "src": "apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

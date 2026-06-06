@@ -1,0 +1,8 @@
+[Unit]
+Description=NetShare WAN Wi-Fi band watchdog (preferir 5 GHz)
+After=NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/netshare/wan-watchdog.sh
